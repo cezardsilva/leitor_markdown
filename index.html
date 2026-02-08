@@ -10,11 +10,18 @@
     <style>
         body { background-color: #2D2D2D; margin: 0; font-family: sans-serif; }
         header { 
-            background: #24292e; color: #2D2D2D; padding: 10px 20px; 
+            background: #24292e; color: white; padding: 10px 20px; 
             display: flex; gap: 15px; align-items: center;
             position: sticky; top: 0; z-index: 100;
         }
-        .container { max-width: 900px; margin: 30px auto; background: black; padding: 45px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        /* Ajuste para que o texto dinâmico apareça em branco */
+        #fileName { color: #ffffff; font-weight: bold; margin-left: auto; }
+        
+        .container { max-width: 900px; margin: 30px auto; background: black; padding: 45px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        
+        /* Forçar modo escuro no conteúdo markdown */
+        .markdown-body { background-color: black !important; color: #e6edf3 !important; }
+
         button, input[type="file"] { 
             padding: 8px 15px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold;
         }
@@ -22,12 +29,11 @@
         button:hover { background: #2c974b; }
         #fileInput { background: #0366d6; color: white; }
         
-        /* Estilo do botão de cópia */
         .code-wrapper { position: relative; }
         .copy-btn {
             position: absolute; right: 10px; top: 10px;
             padding: 4px 8px; font-size: 12px; background: #444; color: white;
-            border: 1px solid #666; border-radius: 4px; opacity: 0.7;
+            border: 1px solid #666; border-radius: 4px; opacity: 0.7; z-index: 10;
         }
         .copy-btn:hover { opacity: 1; }
 
@@ -39,7 +45,7 @@
 <header>
     <input type="file" id="fileInput" accept=".md">
     <button onclick="window.print()">Salvar como PDF</button>
-    <span id="fileName" style="margin-left: auto; font-size: 0.9em; opacity: 0.8;"></span>
+    <span id="fileName">Nenhum arquivo selecionado</span>
 </header>
 
 <div class="container">
@@ -59,19 +65,23 @@
 
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            fileNameDisplay.textContent = "Nenhum arquivo selecionado";
+            return;
+        }
 
-        fileNameDisplay.textContent = file.name;
+        // Atualiza o texto do span com o nome do arquivo atual
+        fileNameDisplay.textContent = "Arquivo: " + file.name;
+        
         const reader = new FileReader();
-
         reader.onload = function(e) {
             const markdownText = e.target.result;
-            
-            // Renderiza Markdown
             content.innerHTML = marked.parse(markdownText);
 
-            // Processa blocos de código para adicionar botão de cópia
             document.querySelectorAll('pre').forEach((pre) => {
+                // Evita duplicar o wrapper se você carregar arquivos um atrás do outro
+                if (pre.parentElement.className === 'code-wrapper') return;
+
                 const wrapper = document.createElement('div');
                 wrapper.className = 'code-wrapper';
                 pre.parentNode.insertBefore(wrapper, pre);
@@ -91,10 +101,8 @@
                 wrapper.appendChild(btn);
             });
 
-            // Aplica Syntax Highlighting
             Prism.highlightAll();
         };
-
         reader.readAsText(file);
     });
 </script>
