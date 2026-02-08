@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Markdown Viewer Pro</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <style>
+        body { background-color: #2D2D2D; margin: 0; font-family: sans-serif; }
+        header { 
+            background: #24292e; color: #2D2D2D; padding: 10px 20px; 
+            display: flex; gap: 15px; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .container { max-width: 900px; margin: 30px auto; background: black; padding: 45px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        button, input[type="file"] { 
+            padding: 8px 15px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold;
+        }
+        button { background: #2ea44f; color: white; }
+        button:hover { background: #2c974b; }
+        #fileInput { background: #0366d6; color: white; }
+        
+        /* Estilo do botão de cópia */
+        .code-wrapper { position: relative; }
+        .copy-btn {
+            position: absolute; right: 10px; top: 10px;
+            padding: 4px 8px; font-size: 12px; background: #444; color: white;
+            border: 1px solid #666; border-radius: 4px; opacity: 0.7;
+        }
+        .copy-btn:hover { opacity: 1; }
+
+        @media print { header { display: none; } .container { box-shadow: none; margin: 0; width: 100%; max-width: none; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <input type="file" id="fileInput" accept=".md">
+    <button onclick="window.print()">Salvar como PDF</button>
+    <span id="fileName" style="margin-left: auto; font-size: 0.9em; opacity: 0.8;"></span>
+</header>
+
+<div class="container">
+    <article id="content" class="markdown-body">
+        <h1 style="color: #ccc; text-align: center;">Selecione um arquivo .md para começar</h1>
+    </article>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const content = document.getElementById('content');
+    const fileNameDisplay = document.getElementById('fileName');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        fileNameDisplay.textContent = file.name;
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            const markdownText = e.target.result;
+            
+            // Renderiza Markdown
+            content.innerHTML = marked.parse(markdownText);
+
+            // Processa blocos de código para adicionar botão de cópia
+            document.querySelectorAll('pre').forEach((pre) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'code-wrapper';
+                pre.parentNode.insertBefore(wrapper, pre);
+                wrapper.appendChild(pre);
+
+                const btn = document.createElement('button');
+                btn.className = 'copy-btn';
+                btn.textContent = 'Copy';
+                
+                btn.onclick = () => {
+                    const code = pre.innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                        btn.textContent = 'Copied!';
+                        setTimeout(() => btn.textContent = 'Copy', 2000);
+                    });
+                };
+                wrapper.appendChild(btn);
+            });
+
+            // Aplica Syntax Highlighting
+            Prism.highlightAll();
+        };
+
+        reader.readAsText(file);
+    });
+</script>
+
+</body>
+</html>
