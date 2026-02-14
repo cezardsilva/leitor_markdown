@@ -11,31 +11,30 @@
         body { background-color: #2D2D2D; margin: 0; font-family: sans-serif; }
         header { 
             background: #24292e; color: white; padding: 10px 20px; 
-            display: flex; gap: 15px; align-items: center;
+            display: flex; gap: 10px; align-items: center;
             position: sticky; top: 0; z-index: 100;
         }
-        /* Ajuste para que o texto dinâmico apareça em branco */
-        #fileName { color: #ffffff; font-weight: bold; margin-left: auto; }
-        
+        #fileName { color: #ffffff; font-weight: bold; margin-left: auto; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
         .container { max-width: 900px; margin: 30px auto; background: black; padding: 45px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-        
-        /* Forçar modo escuro no conteúdo markdown */
         .markdown-body { background-color: black !important; color: #e6edf3 !important; }
 
-        button, input[type="file"] { 
-            padding: 8px 15px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold;
-        }
-        button { background: #2ea44f; color: white; }
+        button, input[type="file"], #searchInput { padding: 8px 12px; border-radius: 5px; border: none; font-weight: bold; }
+        button { background: #2ea44f; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         button:hover { background: #2c974b; }
-        #fileInput { background: #0366d6; color: white; }
+        #fileInput { background: #0366d6; color: white; cursor: pointer; }
         
+        /* Estilo Pesquisa e Setas */
+        .search-container { display: flex; gap: 5px; align-items: center; background: #3f4448; border-radius: 5px; padding-right: 5px; }
+        #searchInput { background: transparent; color: white; width: 180px; font-weight: normal; outline: none; }
+        .nav-btn { background: #57606a; padding: 5px 8px; font-size: 12px; min-width: 30px; }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        #searchCount { font-size: 11px; color: #8b949e; min-width: 40px; text-align: center; }
+
+        mark.search-highlight { background-color: #ffdf5d !important; color: black !important; border-radius: 2px; }
+        mark.current-highlight { background-color: #f39c12 !important; outline: 2px solid white; }
+
         .code-wrapper { position: relative; }
-        .copy-btn {
-            position: absolute; right: 10px; top: 10px;
-            padding: 4px 8px; font-size: 12px; background: #444; color: white;
-            border: 1px solid #666; border-radius: 4px; opacity: 0.7; z-index: 10;
-        }
-        .copy-btn:hover { opacity: 1; }
+        .copy-btn { position: absolute; right: 10px; top: 10px; padding: 4px 8px; font-size: 12px; background: #444; color: white; border: 1px solid #666; border-radius: 4px; opacity: 0.7; z-index: 10; }
 
         @media print { header { display: none; } .container { box-shadow: none; margin: 0; width: 100%; max-width: none; } }
     </style>
@@ -44,13 +43,21 @@
 
 <header>
     <input type="file" id="fileInput" accept=".md">
-    <button onclick="window.print()">Salvar como PDF</button>
-    <span id="fileName">Nenhum arquivo selecionado</span>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="🔍 Pesquisar...">
+        <span id="searchCount">0/0</span>
+        <button class="nav-btn" onclick="navigateSearch(-1)" title="Anterior">▲</button>
+        <button class="nav-btn" onclick="navigateSearch(1)" title="Próximo">▼</button>
+    </div>
+
+    <button onclick="window.print()">PDF</button>
+    <span id="fileName"></span>
 </header>
 
 <div class="container">
     <article id="content" class="markdown-body">
-        <h1 style="color: #ccc; text-align: center;">Selecione um arquivo .md para começar</h1>
+        <h1 style="color: #ccc; text-align: center;">Selecione um arquivo .md</h1>
     </article>
 </div>
 
@@ -59,53 +66,110 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
 
 <script>
-    const fileInput = document.getElementById('fileInput');
-    const content = document.getElementById('content');
-    const fileNameDisplay = document.getElementById('fileName');
+    let originalHTML = ""; 
+    let matches = [];
+    let currentIndex = -1;
 
-    fileInput.addEventListener('change', function(e) {
+    document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if (!file) {
-            fileNameDisplay.textContent = "Nenhum arquivo selecionado";
-            return;
-        }
-
-        // Atualiza o texto do span com o nome do arquivo atual
-        fileNameDisplay.textContent = "Arquivo: " + file.name;
-        
+        if (!file) return;
+        document.getElementById('fileName').textContent = file.name;
         const reader = new FileReader();
         reader.onload = function(e) {
-            const markdownText = e.target.result;
-            content.innerHTML = marked.parse(markdownText);
-
-            document.querySelectorAll('pre').forEach((pre) => {
-                // Evita duplicar o wrapper se você carregar arquivos um atrás do outro
-                if (pre.parentElement.className === 'code-wrapper') return;
-
-                const wrapper = document.createElement('div');
-                wrapper.className = 'code-wrapper';
-                pre.parentNode.insertBefore(wrapper, pre);
-                wrapper.appendChild(pre);
-
-                const btn = document.createElement('button');
-                btn.className = 'copy-btn';
-                btn.textContent = 'Copy';
-                
-                btn.onclick = () => {
-                    const code = pre.innerText;
-                    navigator.clipboard.writeText(code).then(() => {
-                        btn.textContent = 'Copied!';
-                        setTimeout(() => btn.textContent = 'Copy', 2000);
-                    });
-                };
-                wrapper.appendChild(btn);
-            });
-
-            Prism.highlightAll();
+            originalHTML = marked.parse(e.target.result);
+            document.getElementById('content').innerHTML = originalHTML;
+            resetSearch();
+            renderExtras();
         };
         reader.readAsText(file);
     });
-</script>
 
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('keydown', (e) => { 
+        if (e.key === 'Enter') executeSearch(searchInput.value); 
+    });
+
+    function resetSearch() {
+        matches = [];
+        currentIndex = -1;
+        document.getElementById('searchCount').textContent = "0/0";
+    }
+
+    function executeSearch(term) {
+        const content = document.getElementById('content');
+        term = term.trim();
+        content.innerHTML = originalHTML;
+        resetSearch();
+
+        if (!term) { renderExtras(); return; }
+
+        const innerSearch = (node) => {
+            if (node.nodeType === 3) {
+                const text = node.nodeValue;
+                const re = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
+                if (re.test(text)) {
+                    const span = document.createElement('span');
+                    span.innerHTML = text.replace(re, '<mark class="search-highlight">$1</mark>');
+                    node.parentNode.replaceChild(span, node);
+                }
+            } else if (node.nodeType === 1 && !/(style|script)/i.test(node.tagName)) {
+                Array.from(node.childNodes).forEach(innerSearch);
+            }
+        };
+
+        innerSearch(content);
+        renderExtras();
+
+        matches = Array.from(document.querySelectorAll('.search-highlight'));
+        if (matches.length > 0) {
+            currentIndex = 0;
+            updateSearchUI();
+        }
+    }
+
+    function navigateSearch(direction) {
+        if (matches.length === 0) return;
+
+        // Remove destaque do anterior
+        if (currentIndex >= 0) matches[currentIndex].classList.remove('current-highlight');
+
+        currentIndex += direction;
+        if (currentIndex >= matches.length) currentIndex = 0;
+        if (currentIndex < 0) currentIndex = matches.length - 1;
+
+        updateSearchUI();
+    }
+
+    function updateSearchUI() {
+        const countDisplay = document.getElementById('searchCount');
+        countDisplay.textContent = `${currentIndex + 1}/${matches.length}`;
+        
+        const current = matches[currentIndex];
+        current.classList.add('current-highlight');
+        current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function renderExtras() {
+        const content = document.getElementById('content');
+        content.querySelectorAll('pre').forEach((pre) => {
+            if (pre.parentElement.className === 'code-wrapper') return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-wrapper';
+            pre.parentNode.insertBefore(wrapper, pre);
+            wrapper.appendChild(pre);
+            const btn = document.createElement('button');
+            btn.className = 'copy-btn';
+            btn.textContent = 'Copy';
+            btn.onclick = () => {
+                navigator.clipboard.writeText(pre.innerText).then(() => {
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => btn.textContent = 'Copy', 2000);
+                });
+            };
+            wrapper.appendChild(btn);
+        });
+        Prism.highlightAll();
+    }
+</script>
 </body>
 </html>
