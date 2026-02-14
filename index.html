@@ -14,8 +14,12 @@
             display: flex; gap: 15px; align-items: center;
             position: sticky; top: 0; z-index: 100;
         }
+        /* Ajuste para que o texto dinâmico apareça em branco */
         #fileName { color: #ffffff; font-weight: bold; margin-left: auto; }
+        
         .container { max-width: 900px; margin: 30px auto; background: black; padding: 45px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        
+        /* Forçar modo escuro no conteúdo markdown */
         .markdown-body { background-color: black !important; color: #e6edf3 !important; }
 
         button, input[type="file"] { 
@@ -23,12 +27,8 @@
         }
         button { background: #2ea44f; color: white; }
         button:hover { background: #2c974b; }
-        
-        /* Estilo do botão Refresh */
-        #refreshBtn { background: #f39c12; color: white; display: none; }
-        #refreshBtn:hover { background: #e67e22; }
-
         #fileInput { background: #0366d6; color: white; }
+        
         .code-wrapper { position: relative; }
         .copy-btn {
             position: absolute; right: 10px; top: 10px;
@@ -44,7 +44,6 @@
 
 <header>
     <input type="file" id="fileInput" accept=".md">
-    <button id="refreshBtn" onclick="updateContent()">🔄 Atualizar</button>
     <button onclick="window.print()">Salvar como PDF</button>
     <span id="fileName">Nenhum arquivo selecionado</span>
 </header>
@@ -63,58 +62,49 @@
     const fileInput = document.getElementById('fileInput');
     const content = document.getElementById('content');
     const fileNameDisplay = document.getElementById('fileName');
-    const refreshBtn = document.getElementById('refreshBtn');
-    
-    let currentFile = null; // Variável global para armazenar a referência do arquivo
 
     fileInput.addEventListener('change', function(e) {
-        currentFile = e.target.files[0];
-        if (currentFile) {
-            refreshBtn.style.display = 'inline-block'; // Mostra o botão de refresh
-            updateContent();
+        const file = e.target.files[0];
+        if (!file) {
+            fileNameDisplay.textContent = "Nenhum arquivo selecionado";
+            return;
         }
-    });
 
-    function updateContent() {
-        if (!currentFile) return;
-
-        fileNameDisplay.textContent = "Arquivo: " + currentFile.name;
+        // Atualiza o texto do span com o nome do arquivo atual
+        fileNameDisplay.textContent = "Arquivo: " + file.name;
+        
         const reader = new FileReader();
-
         reader.onload = function(e) {
             const markdownText = e.target.result;
             content.innerHTML = marked.parse(markdownText);
 
-            // Reinicia os botões de cópia e highlight
-            processCodeBlocks();
+            document.querySelectorAll('pre').forEach((pre) => {
+                // Evita duplicar o wrapper se você carregar arquivos um atrás do outro
+                if (pre.parentElement.className === 'code-wrapper') return;
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'code-wrapper';
+                pre.parentNode.insertBefore(wrapper, pre);
+                wrapper.appendChild(pre);
+
+                const btn = document.createElement('button');
+                btn.className = 'copy-btn';
+                btn.textContent = 'Copy';
+                
+                btn.onclick = () => {
+                    const code = pre.innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                        btn.textContent = 'Copied!';
+                        setTimeout(() => btn.textContent = 'Copy', 2000);
+                    });
+                };
+                wrapper.appendChild(btn);
+            });
+
             Prism.highlightAll();
         };
-        reader.readAsText(currentFile);
-    }
-
-    function processCodeBlocks() {
-        document.querySelectorAll('pre').forEach((pre) => {
-            if (pre.parentElement.className === 'code-wrapper') return;
-
-            const wrapper = document.createElement('div');
-            wrapper.className = 'code-wrapper';
-            pre.parentNode.insertBefore(wrapper, pre);
-            wrapper.appendChild(pre);
-
-            const btn = document.createElement('button');
-            btn.className = 'copy-btn';
-            btn.textContent = 'Copy';
-            
-            btn.onclick = () => {
-                const code = pre.innerText;
-                navigator.clipboard.writeText(code).then(() => {
-                    btn.textContent = 'Copied!';
-                    setTimeout(() => btn.textContent = 'Copy', 2000);
-                });
-            };
-            wrapper.appendChild(btn);
-        });
-    }
+        reader.readAsText(file);
+    });
 </script>
 
 </body>
