@@ -35,6 +35,24 @@
 
         .code-wrapper { position: relative; }
         .copy-btn { position: absolute; right: 10px; top: 10px; padding: 4px 8px; font-size: 12px; background: #444; color: white; border: 1px solid #666; border-radius: 4px; opacity: 0.7; z-index: 10; }
+        #scrollTopBtn {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 46px;
+            height: 46px;
+            border-radius: 999px;
+            background: #2ea44f;
+            border: none;
+            color: white;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+            z-index: 200;
+        }
+        #scrollTopBtn:hover { background: #2c974b; }
+        #scrollTopBtn svg { width: 22px; height: 22px; fill: currentColor; }
 
         @media print { header { display: none; } .container { box-shadow: none; margin: 0; width: 100%; max-width: none; } }
     </style>
@@ -61,6 +79,12 @@
     </article>
 </div>
 
+<button id="scrollTopBtn" type="button" title="Voltar ao topo" aria-label="Voltar ao topo">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 6.5a1 1 0 0 1 .7.29l6 6a1 1 0 1 1-1.4 1.42L12 8.9l-5.3 5.3a1 1 0 1 1-1.4-1.42l6-6a1 1 0 0 1 .7-.29z"></path>
+    </svg>
+</button>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
@@ -69,6 +93,15 @@
     let originalHTML = ""; 
     let matches = [];
     let currentIndex = -1;
+    const scrollTopBtn = document.getElementById('scrollTopBtn');
+
+    window.addEventListener('scroll', () => {
+        scrollTopBtn.style.display = window.scrollY > 220 ? 'flex' : 'none';
+    });
+
+    scrollTopBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
 
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
