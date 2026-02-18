@@ -14,6 +14,10 @@
 - [Quando usar git apply vs git am](#quando-usar-git-apply-vs-git-am)
 - [Erros comuns ao aplicar patch](#erros-comuns-ao-aplicar-patch)
 - [Resolucao de conflitos](#resolucao-de-conflitos)
+- [Aceitar sempre o patch (incoming changes)](#aceitar-sempre-o-patch-incoming-changes)
+- [Aceitar sempre o que ja estava no repositorio (current changes)](#aceitar-sempre-o-que-ja-estava-no-repositorio-current-changes)
+- [Aplicar em todos os arquivos de uma vez](#aplicar-em-todos-os-arquivos-de-uma-vez)
+- [Adicionar todas as alteracoes (git add .)](#adicionar-todas-as-alteracoes-git-add-)
 - [Recuperacao e reversao](#recuperacao-e-reversao)
 - [Historico e diagnostico](#historico-e-diagnostico)
 - [Fluxo seguro para aplicacao de patch](#fluxo-seguro-para-aplicacao-de-patch)
@@ -288,6 +292,49 @@ Depois finalize:
 
 ```bash
 git add arquivo.xx
+git commit -m "fix: resolve conflito"
+```
+
+### Aceitar sempre o patch (incoming changes)
+
+```bash
+git checkout --theirs -- caminho/do/arquivo
+```
+
+### Aceitar sempre o que ja estava no repositorio (current changes)
+
+```bash
+git checkout --ours -- caminho/do/arquivo
+```
+
+### Aplicar em todos os arquivos de uma vez
+
+Para aceitar tudo de uma vez:
+
+```bash
+git checkout --theirs .
+```
+
+ou
+
+```bash
+git checkout --ours .
+```
+
+### Adicionar todas as alteracoes (git add .)
+
+Use quando quiser colocar todas as alteracoes atuais no stage de uma vez (arquivos novos, modificados e removidos):
+
+```bash
+git add .
+make all
+make iso
+make run-env
+```
+
+Depois, finalize com commit:
+
+```bash
 git commit -m "fix: resolve conflito"
 ```
 
