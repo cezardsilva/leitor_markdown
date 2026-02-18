@@ -7,6 +7,10 @@
 - [Criar e publicar um projeto novo no GitHub](#criar-e-publicar-um-projeto-novo-no-github)
 - [Fluxo diário básico](#fluxo-diário-básico)
 - [Trabalhando com branches](#trabalhando-com-branches)
+- [Estrategias de pull (merge, rebase e ff-only)](#estrategias-de-pull-merge-rebase-e-ff-only)
+- [Merge (mais comum e seguro)](#merge-mais-comum-e-seguro)
+- [Rebase (mantem historico linear)](#rebase-mantem-historico-linear)
+- [Fast-forward only (sem commits divergentes)](#fast-forward-only-sem-commits-divergentes)
 - [Boas práticas](#boas-práticas)
 - [Remover arquivos do índice (sem apagar localmente)](#remover-arquivos-do-índice-sem-apagar-localmente)
 - [Patches e reaplicacao de commits](#patches-e-reaplicacao-de-commits)
@@ -150,6 +154,46 @@ git branch -d minha-branch
 - `develop`: integração
 - `feature/nome`: novas funcionalidades
 - `fix/nome`: correções
+
+## Estrategias de pull (merge, rebase e ff-only)
+
+Quando seu branch local precisa trazer alteracoes do remoto, escolha uma estrategia de `git pull` conforme o fluxo do time.
+
+### Merge (mais comum e seguro)
+
+Mantem os dois historicos e cria commit de merge quando necessario.
+
+```bash
+git pull origin main --no-rebase
+```
+
+Para definir como padrao permanente:
+
+```bash
+git config pull.rebase false
+```
+
+### Rebase (mantem historico linear)
+
+Reaplica seus commits locais por cima do remoto para manter o historico linear.
+
+```bash
+git pull origin main --rebase
+```
+
+Para definir como padrao:
+
+```bash
+git config pull.rebase true
+```
+
+### Fast-forward only (sem commits divergentes)
+
+So funciona quando nao ha divergencia local; se houver, o comando falha em vez de criar merge.
+
+```bash
+git pull origin main --ff-only
+```
 
 ## Boas práticas
 
