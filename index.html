@@ -115,6 +115,7 @@
     <div class="drive-actions">
         <button id="loadDefaultDriveFileBtn" type="button">Abrir manual</button>
         <button id="openDriveFolderBtn" type="button">Abrir pasta</button>
+        <button id="setDriveApiKeyBtn" type="button">API key</button>
     </div>
     <div id="driveFiles" class="drive-files">
         <span class="drive-empty">Sem listagem automatica. Preencha `DRIVE_CONFIG.apiKey` no HTML para listar os .md da pasta aqui.</span>
@@ -142,7 +143,7 @@
         defaultFileId: "1X1HFU2EqR9PYnf9m2-2vdFizA71T2Qse",
         folderId: "1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP",
         folderUrl: "https://drive.google.com/drive/folders/1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP?usp=sharing",
-        apiKey: "" // Opcional: API key do Google para listar arquivos da pasta.
+        apiKey: localStorage.getItem('drive_api_key') || "" // Opcional: API key do Google para leitura via Drive API.
     };
 
     let originalHTML = ""; 
@@ -184,6 +185,7 @@
     document.getElementById('openDriveFolderBtn').addEventListener('click', () => {
         window.open(DRIVE_CONFIG.folderUrl, '_blank', 'noopener,noreferrer');
     });
+    document.getElementById('setDriveApiKeyBtn').addEventListener('click', setDriveApiKey);
 
     function resetSearch() {
         matches = [];
@@ -277,6 +279,25 @@
     }
 
     async function loadMarkdownFromGoogleDrive(fileId, fileName = 'arquivo-drive.md') {
+        const apiKey = (DRIVE_CONFIG.apiKey || '').trim();
+        if (apiKey) {
+            const apiUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${encodeURIComponent(apiKey)}`;
+            try {
+                const response = await fetch(apiUrl);
+                if (response.ok) {
+                    const text = await response.text();
+                    if (text && !/<!doctype html/i.test(text)) {
+                        originalHTML = marked.parse(text);
+                        document.getElementById('content').innerHTML = originalHTML;
+                        document.getElementById('fileName').textContent = fileName;
+                        resetSearch();
+                        renderExtras();
+                        return;
+                    }
+                }
+            } catch (_) {}
+        }
+
         const urls = [
             `https://drive.google.com/uc?export=download&id=${fileId}`,
             `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`
@@ -297,8 +318,7 @@
                 return;
             } catch (_) {}
         }
-
-        alert('Nao foi possivel carregar o arquivo diretamente do Drive. Confira se ele esta publico para visualizacao.');
+        alert('Nao foi possivel carregar o arquivo diretamente do Drive. Se continuar falhando, configure uma API key no botao "API key" e confirme que o arquivo esta publico para visualizacao.');
     }
 
     async function loadDriveFolderFiles() {
@@ -332,6 +352,21 @@
             });
         } catch (_) {
             container.innerHTML = '<span class="drive-empty">Falha ao listar arquivos. Verifique permissao publica da pasta/arquivos e API key.</span>';
+        }
+    }
+
+    function setDriveApiKey() {
+        const current = DRIVE_CONFIG.apiKey || '';
+        const value = prompt('Cole sua Google Drive API key (deixe vazio para remover):', current);
+        if (value === null) return;
+        const key = value.trim();
+        DRIVE_CONFIG.apiKey = key;
+        if (key) {
+            localStorage.setItem('drive_api_key', key);
+            loadDriveFolderFiles();
+        } else {
+            localStorage.removeItem('drive_api_key');
+            document.getElementById('driveFiles').innerHTML = '<span class="drive-empty">Sem listagem automatica. Preencha `DRIVE_CONFIG.apiKey` no HTML para listar os .md da pasta aqui.</span>';
         }
     }
 </script>
