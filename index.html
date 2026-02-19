@@ -22,6 +22,8 @@
         button { background: #2ea44f; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         button:hover { background: #2c974b; }
         #fileInput { background: #0366d6; color: white; cursor: pointer; }
+        #driveBtn { background: #f4b400; color: #111; padding: 8px 10px; font-size: 16px; }
+        #driveBtn:hover { background: #e2a700; }
         
         /* Estilo Pesquisa e Setas */
         .search-container { display: flex; gap: 5px; align-items: center; background: #3f4448; border-radius: 5px; padding-right: 5px; }
@@ -53,6 +55,39 @@
         }
         #scrollTopBtn:hover { background: #2c974b; }
         #scrollTopBtn svg { width: 22px; height: 22px; fill: currentColor; }
+        .drive-panel {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            width: 340px;
+            max-height: 70vh;
+            overflow-y: auto;
+            background: #20252b;
+            border: 1px solid #3f4448;
+            border-radius: 8px;
+            padding: 12px;
+            z-index: 250;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+            color: #e6edf3;
+        }
+        .drive-panel.hidden { display: none; }
+        .drive-panel h3 { margin: 0 0 8px; font-size: 14px; color: #fff; }
+        .drive-note { font-size: 11px; color: #8b949e; line-height: 1.35; margin: 0 0 9px; }
+        .drive-actions { display: flex; gap: 7px; margin-bottom: 10px; }
+        .drive-actions button { flex: 1; padding: 7px 8px; font-size: 12px; }
+        .drive-files { display: flex; flex-direction: column; gap: 6px; }
+        .drive-file {
+            width: 100%;
+            border: 1px solid #3f4448;
+            background: #2b3138;
+            color: #e6edf3;
+            border-radius: 6px;
+            padding: 7px 9px;
+            font-size: 12px;
+            text-align: left;
+        }
+        .drive-file:hover { background: #333a43; }
+        .drive-empty { font-size: 12px; color: #8b949e; }
 
         @media print { header { display: none; } .container { box-shadow: none; margin: 0; width: 100%; max-width: none; } }
     </style>
@@ -69,9 +104,22 @@
         <button class="nav-btn" onclick="navigateSearch(1)" title="Próximo">▼</button>
     </div>
 
+    <button id="driveBtn" type="button" title="Biblioteca no Google Drive" aria-label="Biblioteca no Google Drive">📁</button>
     <button onclick="window.print()">PDF</button>
     <span id="fileName"></span>
 </header>
+
+<aside id="drivePanel" class="drive-panel hidden" aria-live="polite">
+    <h3>Biblioteca Drive</h3>
+    <p class="drive-note">Abra o manual com 1 clique e a pasta compartilhada no Drive. A listagem automatica de arquivos `.md` na pasta e opcional e usa API key.</p>
+    <div class="drive-actions">
+        <button id="loadDefaultDriveFileBtn" type="button">Abrir manual</button>
+        <button id="openDriveFolderBtn" type="button">Abrir pasta</button>
+    </div>
+    <div id="driveFiles" class="drive-files">
+        <span class="drive-empty">Sem listagem automatica. Preencha `DRIVE_CONFIG.apiKey` no HTML para listar os .md da pasta aqui.</span>
+    </div>
+</aside>
 
 <div class="container">
     <article id="content" class="markdown-body">
@@ -90,9 +138,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
 
 <script>
+    const DRIVE_CONFIG = {
+        defaultFileId: "1X1HFU2EqR9PYnf9m2-2vdFizA71T2Qse",
+        folderId: "1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP",
+        folderUrl: "https://drive.google.com/drive/folders/1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP?usp=sharing",
+        apiKey: "" // Opcional: API key do Google para listar arquivos da pasta.
+    };
+
     let originalHTML = ""; 
     let matches = [];
     let currentIndex = -1;
+    let driveFilesLoaded = false;
     const scrollTopBtn = document.getElementById('scrollTopBtn');
 
     window.addEventListener('scroll', () => {
@@ -120,6 +176,13 @@
     const searchInput = document.getElementById('searchInput');
     searchInput.addEventListener('keydown', (e) => { 
         if (e.key === 'Enter') executeSearch(searchInput.value); 
+    });
+    document.getElementById('driveBtn').addEventListener('click', toggleDrivePanel);
+    document.getElementById('loadDefaultDriveFileBtn').addEventListener('click', () => {
+        loadMarkdownFromGoogleDrive(DRIVE_CONFIG.defaultFileId, 'git_manual.md');
+    });
+    document.getElementById('openDriveFolderBtn').addEventListener('click', () => {
+        window.open(DRIVE_CONFIG.folderUrl, '_blank', 'noopener,noreferrer');
     });
 
     function resetSearch() {
@@ -202,6 +265,74 @@
             wrapper.appendChild(btn);
         });
         Prism.highlightAll();
+    }
+
+    async function toggleDrivePanel() {
+        const panel = document.getElementById('drivePanel');
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden') && !driveFilesLoaded) {
+            driveFilesLoaded = true;
+            await loadDriveFolderFiles();
+        }
+    }
+
+    async function loadMarkdownFromGoogleDrive(fileId, fileName = 'arquivo-drive.md') {
+        const urls = [
+            `https://drive.google.com/uc?export=download&id=${fileId}`,
+            `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`
+        ];
+
+        for (const url of urls) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) continue;
+                const text = await response.text();
+                if (!text || /<!doctype html/i.test(text)) continue;
+
+                originalHTML = marked.parse(text);
+                document.getElementById('content').innerHTML = originalHTML;
+                document.getElementById('fileName').textContent = fileName;
+                resetSearch();
+                renderExtras();
+                return;
+            } catch (_) {}
+        }
+
+        alert('Nao foi possivel carregar o arquivo diretamente do Drive. Confira se ele esta publico para visualizacao.');
+    }
+
+    async function loadDriveFolderFiles() {
+        const container = document.getElementById('driveFiles');
+        if (!DRIVE_CONFIG.apiKey) return;
+
+        container.innerHTML = '<span class="drive-empty">Carregando arquivos...</span>';
+        const query = encodeURIComponent(`'${DRIVE_CONFIG.folderId}' in parents and trashed=false and mimeType='text/markdown'`);
+        const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&orderBy=name&key=${encodeURIComponent(DRIVE_CONFIG.apiKey)}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('drive');
+            const data = await response.json();
+            const files = Array.isArray(data.files) ? data.files : [];
+
+            if (files.length === 0) {
+                container.innerHTML = '<span class="drive-empty">Nenhum arquivo .md encontrado na pasta compartilhada.</span>';
+                return;
+            }
+
+            container.innerHTML = '';
+            files.forEach((file) => {
+                const button = document.createElement('button');
+                button.className = 'drive-file';
+                button.type = 'button';
+                button.textContent = file.name;
+                button.title = `Abrir ${file.name}`;
+                button.onclick = () => loadMarkdownFromGoogleDrive(file.id, file.name);
+                container.appendChild(button);
+            });
+        } catch (_) {
+            container.innerHTML = '<span class="drive-empty">Falha ao listar arquivos. Verifique permissao publica da pasta/arquivos e API key.</span>';
+        }
     }
 </script>
 </body>
