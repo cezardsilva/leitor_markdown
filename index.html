@@ -143,7 +143,7 @@
         defaultFileId: "1X1HFU2EqR9PYnf9m2-2vdFizA71T2Qse",
         folderId: "1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP",
         folderUrl: "https://drive.google.com/drive/folders/1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP?usp=sharing",
-        apiKey: localStorage.getItem('drive_api_key') || "" // Opcional: API key do Google para leitura via Drive API.
+        apiKey: localStorage.getItem('drive_api_key') || "AIzaSyBnPl69k4YYjeYz-A-MOZg5U8lvd_GSSuU" // Opcional: API key do Google para leitura via Drive API.
     };
 
     let originalHTML = ""; 
@@ -281,7 +281,7 @@
     async function loadMarkdownFromGoogleDrive(fileId, fileName = 'arquivo-drive.md') {
         const apiKey = (DRIVE_CONFIG.apiKey || '').trim();
         if (apiKey) {
-            const apiUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${encodeURIComponent(apiKey)}`;
+            const apiUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true&key=${encodeURIComponent(apiKey)}`;
             try {
                 const response = await fetch(apiUrl);
                 if (response.ok) {
@@ -294,8 +294,18 @@
                         renderExtras();
                         return;
                     }
+                } else {
+                    let message = `status ${response.status}`;
+                    try {
+                        const errorJson = await response.json();
+                        message = errorJson?.error?.message || message;
+                    } catch (_) {}
+                    throw new Error(message);
                 }
-            } catch (_) {}
+            } catch (error) {
+                const detail = error && error.message ? error.message : 'erro desconhecido';
+                alert(`Falha ao carregar via Drive API: ${detail}`);
+            }
         }
 
         const urls = [
@@ -326,12 +336,19 @@
         if (!DRIVE_CONFIG.apiKey) return;
 
         container.innerHTML = '<span class="drive-empty">Carregando arquivos...</span>';
-        const query = encodeURIComponent(`'${DRIVE_CONFIG.folderId}' in parents and trashed=false and mimeType='text/markdown'`);
-        const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&orderBy=name&key=${encodeURIComponent(DRIVE_CONFIG.apiKey)}`;
+        const query = encodeURIComponent(`'${DRIVE_CONFIG.folderId}' in parents and trashed=false and (name contains '.md' or name contains '.MD')`);
+        const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,mimeType)&orderBy=name&includeItemsFromAllDrives=true&supportsAllDrives=true&key=${encodeURIComponent(DRIVE_CONFIG.apiKey)}`;
 
         try {
             const response = await fetch(url);
-            if (!response.ok) throw new Error('drive');
+            if (!response.ok) {
+                let message = `status ${response.status}`;
+                try {
+                    const errorJson = await response.json();
+                    message = errorJson?.error?.message || message;
+                } catch (_) {}
+                throw new Error(message);
+            }
             const data = await response.json();
             const files = Array.isArray(data.files) ? data.files : [];
 
@@ -350,8 +367,9 @@
                 button.onclick = () => loadMarkdownFromGoogleDrive(file.id, file.name);
                 container.appendChild(button);
             });
-        } catch (_) {
-            container.innerHTML = '<span class="drive-empty">Falha ao listar arquivos. Verifique permissao publica da pasta/arquivos e API key.</span>';
+        } catch (error) {
+            const detail = (error && error.message) ? error.message : 'erro desconhecido';
+            container.innerHTML = `<span class="drive-empty">Falha ao listar arquivos. Verifique Drive API habilitada, restricao de dominio da chave e permissoes publicas da pasta/arquivos. Detalhe: ${detail}</span>`;
         }
     }
 
