@@ -264,7 +264,8 @@
         };
 
         innerSearch(content);
-        renderExtras();
+        // Durante busca, nao re-highlightar Prism para nao remover os <mark> dentro dos blocos de codigo.
+        renderExtras({ skipHighlight: true });
 
         matches = Array.from(document.querySelectorAll('.search-highlight'));
         if (matches.length > 0) {
@@ -295,10 +296,11 @@
         current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    function renderExtras() {
+    function renderExtras(options = {}) {
+        const skipHighlight = !!options.skipHighlight;
         const content = document.getElementById('content');
         content.querySelectorAll('pre').forEach((pre) => {
-            if (pre.parentElement.className === 'code-wrapper') return;
+            if (pre.parentElement && pre.parentElement.classList.contains('code-wrapper')) return;
             const wrapper = document.createElement('div');
             wrapper.className = 'code-wrapper';
             pre.parentNode.insertBefore(wrapper, pre);
@@ -314,7 +316,7 @@
             };
             wrapper.appendChild(btn);
         });
-        if (window.Prism && typeof window.Prism.highlightAll === 'function') {
+        if (!skipHighlight && window.Prism && typeof window.Prism.highlightAll === 'function') {
             window.Prism.highlightAll();
         }
     }
