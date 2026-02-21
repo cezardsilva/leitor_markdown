@@ -139,14 +139,59 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
 
 <script>
+    function safeStorageGet(key) {
+        try {
+            return window.localStorage.getItem(key);
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function safeStorageSet(key, value) {
+        try {
+            window.localStorage.setItem(key, value);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function safeStorageRemove(key) {
+        try {
+            window.localStorage.removeItem(key);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function readDriveErrorMessage(errorJson, fallback) {
+        if (!errorJson || typeof errorJson !== 'object') return fallback;
+        const errorObj = errorJson.error;
+        if (errorObj && typeof errorObj.message === 'string' && errorObj.message.trim()) {
+            return errorObj.message;
+        }
+        return fallback;
+    }
+
+    function parseMarkdownSafe(markdownText) {
+        if (window.marked && typeof window.marked.parse === 'function') {
+            return window.marked.parse(markdownText);
+        }
+        return `<pre>${String(markdownText)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')}</pre>`;
+    }
+
     const DRIVE_CONFIG = {
         defaultFileId: "1X1HFU2EqR9PYnf9m2-2vdFizA71T2Qse",
         folderId: "1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP",
         folderUrl: "https://drive.google.com/drive/folders/1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP?usp=sharing",
-        apiKey: localStorage.getItem('drive_api_key') || "AIzaSyBnPl69k4YYjeYz-A-MOZg5U8lvd_GSSuU" // Opcional: API key do Google para leitura via Drive API.
+        apiKey: safeStorageGet('drive_api_key') || "AIzaSyBnPl69k4YYjeYz-A-MOZg5U8lvd_GSSuU" // Opcional: API key do Google para leitura via Drive API.
     };
 
-    let originalHTML = ""; 
+    let originalHTML = document.getElementById('content').innerHTML;
     let matches = [];
     let currentIndex = -1;
     let driveFilesLoaded = false;
@@ -166,7 +211,7 @@
         document.getElementById('fileName').textContent = file.name;
         const reader = new FileReader();
         reader.onload = function(e) {
-            originalHTML = marked.parse(e.target.result);
+            originalHTML = parseMarkdownSafe(e.target.result);
             document.getElementById('content').innerHTML = originalHTML;
             resetSearch();
             renderExtras();
@@ -177,6 +222,9 @@
     const searchInput = document.getElementById('searchInput');
     searchInput.addEventListener('keydown', (e) => { 
         if (e.key === 'Enter') executeSearch(searchInput.value); 
+    });
+    searchInput.addEventListener('input', () => {
+        executeSearch(searchInput.value);
     });
     document.getElementById('driveBtn').addEventListener('click', toggleDrivePanel);
     document.getElementById('loadDefaultDriveFileBtn').addEventListener('click', () => {
@@ -266,7 +314,9 @@
             };
             wrapper.appendChild(btn);
         });
-        Prism.highlightAll();
+        if (window.Prism && typeof window.Prism.highlightAll === 'function') {
+            window.Prism.highlightAll();
+        }
     }
 
     async function toggleDrivePanel() {
@@ -287,7 +337,7 @@
                 if (response.ok) {
                     const text = await response.text();
                     if (text && !/<!doctype html/i.test(text)) {
-                        originalHTML = marked.parse(text);
+                        originalHTML = parseMarkdownSafe(text);
                         document.getElementById('content').innerHTML = originalHTML;
                         document.getElementById('fileName').textContent = fileName;
                         resetSearch();
@@ -298,7 +348,7 @@
                     let message = `status ${response.status}`;
                     try {
                         const errorJson = await response.json();
-                        message = errorJson?.error?.message || message;
+                        message = readDriveErrorMessage(errorJson, message);
                     } catch (_) {}
                     throw new Error(message);
                 }
@@ -320,7 +370,7 @@
                 const text = await response.text();
                 if (!text || /<!doctype html/i.test(text)) continue;
 
-                originalHTML = marked.parse(text);
+                originalHTML = parseMarkdownSafe(text);
                 document.getElementById('content').innerHTML = originalHTML;
                 document.getElementById('fileName').textContent = fileName;
                 resetSearch();
@@ -345,7 +395,7 @@
                 let message = `status ${response.status}`;
                 try {
                     const errorJson = await response.json();
-                    message = errorJson?.error?.message || message;
+                    message = readDriveErrorMessage(errorJson, message);
                 } catch (_) {}
                 throw new Error(message);
             }
@@ -380,10 +430,10 @@
         const key = value.trim();
         DRIVE_CONFIG.apiKey = key;
         if (key) {
-            localStorage.setItem('drive_api_key', key);
+            safeStorageSet('drive_api_key', key);
             loadDriveFolderFiles();
         } else {
-            localStorage.removeItem('drive_api_key');
+            safeStorageRemove('drive_api_key');
             document.getElementById('driveFiles').innerHTML = '<span class="drive-empty">Sem listagem automatica. Preencha `DRIVE_CONFIG.apiKey` no HTML para listar os .md da pasta aqui.</span>';
         }
     }
