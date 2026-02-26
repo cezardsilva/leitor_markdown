@@ -3,6 +3,11 @@
 ## Indice
 
 - [Instalação do Git](#instalação-do-git)
+- [Configuração global (vale para todos os repositórios)](#configuração-global-vale-para-todos-os-repositórios)
+- [Configuração local (somente para este repositório)](#configuração-local-somente-para-este-repositório)
+- [Autenticação](#autenticação)
+- [Usar Personal Access Token (PAT)](#usar-personal-access-token-pat)
+- [Usar chave SSH](#usar-chave-ssh)
 - [Clonar um repositório](#clonar-um-repositório)
 - [Criar e publicar um projeto novo no GitHub](#criar-e-publicar-um-projeto-novo-no-github)
 - [Fluxo diário básico](#fluxo-diário-básico)
@@ -45,6 +50,62 @@ Após a instalação, use o Git Bash.
 
 ```bash
 brew install git
+```
+
+## Configuração global (vale para todos os repositórios)
+
+```bash
+git config --global user.name "Seu Nome"
+git config --global user.email "seu@email.com"
+git config --global init.defaultBranch main
+```
+
+Para conferir:
+
+```bash
+git config --global --list
+```
+
+## Configuração local (somente para este repositório)
+
+Dentro da pasta do projeto:
+
+```bash
+git config user.name "Seu Nome"
+git config user.email "seu@email.com"
+```
+
+Para conferir:
+
+```bash
+git config --list --local
+```
+
+## Autenticação
+
+### Usar Personal Access Token (PAT)
+
+Para acesso via HTTPS, use um token no lugar da senha.
+
+1. Crie um token em `Settings > Developer settings > Personal access tokens` no GitHub.
+2. Ao fazer `git push` por HTTPS, use o token quando o Git solicitar senha.
+3. Nunca compartilhe o token.
+
+### Usar chave SSH
+
+```bash
+ssh-keygen -t ed25519 -C "seu@email.com"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+cat ~/.ssh/id_ed25519.pub
+```
+
+Copie a chave pública e adicione em `GitHub > Settings > SSH and GPG keys`.
+
+Teste a conexão:
+
+```bash
+ssh -T git@github.com
 ```
 
 ## Clonar um repositório
@@ -103,14 +164,6 @@ Se o branch principal for `master`:
 ```bash
 git push -u origin master
 ```
-
-### Autenticação via token (HTTPS)
-
-Ao usar HTTPS, substitua a senha por um Personal Access Token criado em:
-
-`Settings > Developer Settings > Personal Access Tokens`
-
-Nunca compartilhe seu token.
 
 ## Fluxo diário básico
 
