@@ -10,6 +10,7 @@
 - [Usar chave SSH](#usar-chave-ssh)
 - [Clonar um repositório](#clonar-um-repositório)
 - [Criar e publicar um projeto novo no GitHub](#criar-e-publicar-um-projeto-novo-no-github)
+- [Trocar para um novo repositório remoto](#trocar-para-um-novo-repositório-remoto)
 - [Fluxo diário básico](#fluxo-diário-básico)
 - [Trabalhando com branches](#trabalhando-com-branches)
 - [Estrategias de pull (merge, rebase e ff-only)](#estrategias-de-pull-merge-rebase-e-ff-only)
@@ -152,6 +153,29 @@ git commit -m "initial commit"
 git remote add origin https://github.com/usuario/projeto.git
 git remote -v
 ```
+
+### Trocar para um novo repositório remoto
+
+Para trocar para um novo repositório, voce nao precisa adicionar outro `origin`; basta alterar a URL existente.
+
+```bash
+# Verifique os remotes atuais
+git remote -v
+
+# Altere a URL do remote 'origin' para o novo repositorio
+git remote set-url origin https://github.com/cezardsilva/CDS_OSv4.git
+
+# Confirme se a mudanca foi feita
+git remote -v
+```
+
+Depois disso, envie seus commits para o novo repositorio com:
+
+```bash
+git push -u origin main
+```
+
+Observacao: se sua branch principal tiver outro nome (como `master`), substitua `main`.
 
 ### Enviar para o GitHub
 
