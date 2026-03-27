@@ -44,7 +44,6 @@
         }
         #scrollTopBtn svg { width: 22px; height: 22px; fill: currentColor; }
 
-        /* PAINEL DRIVE - RESTAURADO */
         .drive-panel {
             position: fixed; top: 60px; right: 20px; width: 340px;
             max-height: 80vh; overflow-y: auto; background: #20252b;
@@ -53,7 +52,6 @@
         }
         .drive-panel.hidden { display: none; }
         .drive-panel h3 { margin: 0 0 10px; font-size: 14px; color: #fff; }
-
         .drive-actions { display: flex; gap: 7px; margin-bottom: 12px; }
         .drive-actions button { flex: 1; padding: 8px 5px; font-size: 11px; white-space: nowrap; }
 
@@ -62,9 +60,7 @@
             cursor: pointer; padding-top: 8px; border-top: 1px solid #333;
         }
         .drive-list-header span { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
-
         #driveFiles { display: none; flex-direction: column; gap: 6px; margin-top: 8px; }
-
         .drive-file {
             width: 100%; border: 1px solid #3f4448; background: #2b3138;
             color: #e6edf3; border-radius: 6px; padding: 8px;
@@ -121,7 +117,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
 
 <script>
-    // Configurações e Storage
     const DRIVE_CONFIG = {
         defaultFileId: "1X1HFU2EqR9PYnf9m2-2vdFizA71T2Qse",
         folderId: "1HjJZiyQejorhK12XxyUzS3CwV5f0QPoP",
@@ -134,7 +129,63 @@
     let currentIndex = -1;
     let driveFilesLoaded = false;
 
-    // UI Events
+    // --- PESQUISA ---
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', () => executeSearch(searchInput.value));
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') navigateSearch(1); });
+
+    function executeSearch(term) {
+        const content = document.getElementById('content');
+        content.innerHTML = originalHTML; // Reseta o HTML para o original
+        matches = [];
+        currentIndex = -1;
+
+        if (!term.trim()) {
+            document.getElementById('searchCount').textContent = "0/0";
+            renderExtras();
+            return;
+        }
+
+        const walk = (node) => {
+            if (node.nodeType === 3) { // Texto
+                const reg = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
+                if (reg.test(node.nodeValue)) {
+                    const span = document.createElement('span');
+                    span.innerHTML = node.nodeValue.replace(reg, '<mark class="search-highlight">$1</mark>');
+                    node.parentNode.replaceChild(span, node);
+                }
+            } else if (node.nodeType === 1 && !/SCRIPT|STYLE|MARK/.test(node.tagName)) {
+                Array.from(node.childNodes).forEach(walk);
+            }
+        };
+
+        walk(content);
+        renderExtras({ skipHighlight: true }); // Evita que o Prism quebre os <mark>
+        matches = Array.from(document.querySelectorAll('.search-highlight'));
+        
+        if (matches.length > 0) {
+            currentIndex = 0;
+            updateSearchUI();
+        } else {
+            document.getElementById('searchCount').textContent = "0/0";
+        }
+    }
+
+    function navigateSearch(dir) {
+        if (!matches.length) return;
+        if (currentIndex >= 0) matches[currentIndex].classList.remove('current-highlight');
+        currentIndex = (currentIndex + dir + matches.length) % matches.length;
+        updateSearchUI();
+    }
+
+    function updateSearchUI() {
+        document.getElementById('searchCount').textContent = `${currentIndex + 1}/${matches.length}`;
+        const curr = matches[currentIndex];
+        curr.classList.add('current-highlight');
+        curr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // --- DRIVE E UI ---
     document.getElementById('driveBtn').addEventListener('click', toggleDrivePanel);
     document.getElementById('loadDefaultDriveFileBtn').addEventListener('click', () => loadMarkdownFromGoogleDrive(DRIVE_CONFIG.defaultFileId, 'git_manual.md'));
     document.getElementById('openDriveFolderBtn').addEventListener('click', () => window.open(DRIVE_CONFIG.folderUrl, '_blank'));
@@ -157,7 +208,6 @@
         icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
-    // Funções de Carregamento e Markdown
     async function loadMarkdownFromGoogleDrive(fileId, fileName) {
         const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_CONFIG.apiKey}`;
         try {
@@ -167,8 +217,8 @@
             document.getElementById('content').innerHTML = originalHTML;
             document.getElementById('fileName').textContent = fileName;
             window.scrollTo(0,0);
-            Prism.highlightAll();
-        } catch (e) { alert("Erro ao carregar arquivo."); }
+            renderExtras();
+        } catch (e) { alert("Erro ao carregar do Drive."); }
     }
 
     async function loadDriveFolderFiles() {
@@ -186,32 +236,51 @@
                 btn.onclick = () => loadMarkdownFromGoogleDrive(file.id, file.name);
                 container.appendChild(btn);
             });
-        } catch (e) { container.innerHTML = 'Erro ao listar arquivos.'; }
+        } catch (e) { container.innerHTML = 'Erro ao listar.'; }
     }
 
-    function setDriveApiKey() {
-        const val = prompt("API Key:", DRIVE_CONFIG.apiKey);
-        if (val) { localStorage.setItem('drive_api_key', val); location.reload(); }
+    function renderExtras(opt = {}) {
+        const content = document.getElementById('content');
+        content.querySelectorAll('pre').forEach(pre => {
+            if (pre.parentNode.classList.contains('code-wrapper')) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'code-wrapper';
+            pre.parentNode.insertBefore(wrap, pre);
+            wrap.appendChild(pre);
+            const btn = document.createElement('button');
+            btn.className = 'copy-btn';
+            btn.textContent = 'Copy';
+            btn.onclick = () => {
+                navigator.clipboard.writeText(pre.innerText);
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 2000);
+            };
+            wrap.appendChild(btn);
+        });
+        if (!opt.skipHighlight) Prism.highlightAll();
     }
 
-    // Scroll Top
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            originalHTML = marked.parse(ev.target.result);
+            document.getElementById('content').innerHTML = originalHTML;
+            document.getElementById('fileName').textContent = file.name;
+            renderExtras();
+        };
+        reader.readAsText(file);
+    });
+
     const stp = document.getElementById('scrollTopBtn');
     window.onscroll = () => stp.style.display = window.scrollY > 200 ? 'flex' : 'none';
     stp.onclick = () => window.scrollTo({top: 0, behavior: 'smooth'});
 
-    // Lógica de busca e input de arquivo local mantidas conforme original...
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            originalHTML = marked.parse(e.target.result);
-            document.getElementById('content').innerHTML = originalHTML;
-            document.getElementById('fileName').textContent = file.name;
-            Prism.highlightAll();
-        };
-        reader.readAsText(file);
-    });
+    function setDriveApiKey() {
+        const val = prompt("API Key:", DRIVE_CONFIG.apiKey);
+        if (val !== null) { localStorage.setItem('drive_api_key', val); location.reload(); }
+    }
 </script>
 </body>
 </html>
